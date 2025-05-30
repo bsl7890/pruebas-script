@@ -125,7 +125,7 @@ local function toggleNoclip()
     outputLabel.Text = noclipEnabled and "Noclip activado." or "Noclip desactivado."
 end
 
--- Conexión para noclip
+-- Conexión para noclip*
 game:GetService("RunService").Stepped:Connect(function()
     if noclipEnabled then
         local character = player.Character
