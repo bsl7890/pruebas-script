@@ -1,9 +1,6 @@
 wait(0.5)
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-
 local player = Players.LocalPlayer
 
 local ba = Instance.new("ScreenGui")
@@ -11,6 +8,7 @@ local ca = Instance.new("Frame")
 local titulo = Instance.new("TextLabel")
 local inputBox = Instance.new("TextBox")
 local ejecutarBtn = Instance.new("TextButton")
+local cerrarBtn = Instance.new("TextButton") -- Botón cerrar
 local outputLabel = Instance.new("TextLabel")
 
 ba.Name = "MenuComandos"
@@ -47,13 +45,23 @@ inputBox.ClearTextOnFocus = false
 
 -- Botón ejecutar
 ejecutarBtn.Parent = ca
-ejecutarBtn.Position = UDim2.new(0.3, 0, 0.55, 0)
+ejecutarBtn.Position = UDim2.new(0.05, 0, 0.55, 0)
 ejecutarBtn.Size = UDim2.new(0.4, 0, 0, 40)
 ejecutarBtn.BackgroundColor3 = Color3.new(0, 0.5, 0.5)
 ejecutarBtn.Font = Enum.Font.SourceSansBold
 ejecutarBtn.Text = "Ejecutar"
 ejecutarBtn.TextColor3 = Color3.new(1, 1, 1)
 ejecutarBtn.TextSize = 22
+
+-- Botón cerrar
+cerrarBtn.Parent = ca
+cerrarBtn.Position = UDim2.new(0.55, 0, 0.55, 0)
+cerrarBtn.Size = UDim2.new(0.4, 0, 0, 40)
+cerrarBtn.BackgroundColor3 = Color3.new(0.5, 0, 0)
+cerrarBtn.Font = Enum.Font.SourceSansBold
+cerrarBtn.Text = "Cerrar"
+cerrarBtn.TextColor3 = Color3.new(1, 1, 1)
+cerrarBtn.TextSize = 22
 
 -- Label de salida (mensajes)
 outputLabel.Parent = ca
@@ -65,102 +73,10 @@ outputLabel.TextColor3 = Color3.new(0, 1, 1)
 outputLabel.TextSize = 18
 outputLabel.Text = "Esperando comando..."
 
--- Variables vuelo y noclip
+-- Variables para fly
 local flyEnabled = false
-local noclipEnabled = false
 local bodyVelocity, bodyGyro
 
-local keysPressed = {}
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        keysPressed[input.KeyCode] = true
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        keysPressed[input.KeyCode] = false
-    end
-end)
-
--- Función para activar/desactivar noclip
-local function toggleNoclip()
-    local character = player.Character
-    if not character then
-        outputLabel.Text = "No hay personaje."
-        return
-    end
-
-    noclipEnabled = not noclipEnabled
-
-    if noclipEnabled then
-        outputLabel.Text = "Noclip activado."
-    else
-        outputLabel.Text = "Noclip desactivado."
-        -- Restaurar colisiones normales
-        for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
-            end
-        end
-    end
-end
-
--- Función para actualizar noclip cada frame
-local function updateNoclip()
-    if not noclipEnabled then return end
-    local character = player.Character
-    if not character then return end
-
-    for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
-end
-
--- Función para actualizar vuelo
-local function updateFly()
-    if not flyEnabled then return end
-    local character = player.Character
-    if not character then return end
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-
-    local camCFrame = workspace.CurrentCamera.CFrame
-    local direction = Vector3.new(0,0,0)
-
-    if keysPressed[Enum.KeyCode.W] then
-        direction = direction + camCFrame.LookVector
-    end
-    if keysPressed[Enum.KeyCode.S] then
-        direction = direction - camCFrame.LookVector
-    end
-    if keysPressed[Enum.KeyCode.A] then
-        direction = direction - camCFrame.RightVector
-    end
-    if keysPressed[Enum.KeyCode.D] then
-        direction = direction + camCFrame.RightVector
-    end
-    if keysPressed[Enum.KeyCode.Space] then
-        direction = direction + Vector3.new(0,1,0)
-    end
-    if keysPressed[Enum.KeyCode.LeftShift] then
-        direction = direction - Vector3.new(0,1,0)
-    end
-
-    if direction.Magnitude > 0 then
-        direction = direction.Unit * 50 -- velocidad vuelo
-    end
-
-    bodyVelocity.Velocity = direction
-    bodyGyro.CFrame = camCFrame
-end
-
--- Función para activar/desactivar vuelo
 local function toggleFly()
     local character = player.Character
     if not character then 
@@ -175,14 +91,12 @@ local function toggleFly()
     end
 
     if flyEnabled then
-        -- Desactivar vuelo
         flyEnabled = false
         if bodyVelocity then bodyVelocity:Destroy() end
         if bodyGyro then bodyGyro:Destroy() end
         humanoid.PlatformStand = false
         outputLabel.Text = "Vuelo desactivado."
     else
-        -- Activar vuelo
         flyEnabled = true
         bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
@@ -200,31 +114,81 @@ local function toggleFly()
     end
 end
 
--- Ejecutar comando según texto
+local noclipEnabled = false
+local function toggleNoclip()
+    local character = player.Character
+    if not character then
+        outputLabel.Text = "No hay personaje."
+        return
+    end
+    noclipEnabled = not noclipEnabled
+    outputLabel.Text = noclipEnabled and "Noclip activado." or "Noclip desactivado."
+end
+
+-- Conexión para noclip
+game:GetService("RunService").Stepped:Connect(function()
+    if noclipEnabled then
+        local character = player.Character
+        if character then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") and part.CanCollide == true then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+local function teleportToPlayer(name)
+    local target = Players:FindFirstChild(name)
+    local character = player.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+
+    if not target then
+        outputLabel.Text = "Jugador no encontrado: " .. name
+        return
+    end
+
+    if not humanoidRootPart then
+        outputLabel.Text = "No se pudo teletransportar (sin HumanoidRootPart)."
+        return
+    end
+
+    local targetCharacter = target.Character
+    local targetHRP = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
+
+    if not targetHRP then
+        outputLabel.Text = "El jugador objetivo no tiene HumanoidRootPart."
+        return
+    end
+
+    humanoidRootPart.CFrame = targetHRP.CFrame + Vector3.new(0, 3, 0)
+    outputLabel.Text = "Teletransportado a " .. name
+end
+
+-- Función para ejecutar comandos
 local function ejecutarComando(cmd)
-    cmd = cmd:lower()
-    if cmd == "saludar" then
+    local args = {}
+    for word in cmd:gmatch("%S+") do
+        table.insert(args, word)
+    end
+
+    local command = args[1] and args[1]:lower() or ""
+
+    if command == "saludar" then
         outputLabel.Text = "¡Hola, " .. player.Name .. "! Has usado el comando Saludar."
-    elseif cmd == "volar" then
+    elseif command == "volar" then
         toggleFly()
-    elseif cmd == "noclip" then
+    elseif command == "noclip" then
         toggleNoclip()
+    elseif command == "teleport" and args[2] then
+        teleportToPlayer(args[2])
     else
         outputLabel.Text = "Comando no reconocido."
     end
 end
 
--- Actualizar cada frame vuelo y noclip
-RunService.Heartbeat:Connect(function()
-    if flyEnabled then
-        updateFly()
-    end
-    if noclipEnabled then
-        updateNoclip()
-    end
-end)
-
--- Evento botón
+-- Evento botón ejecutar
 ejecutarBtn.MouseButton1Click:Connect(function()
     local texto = inputBox.Text
     if texto ~= "" then
@@ -232,4 +196,9 @@ ejecutarBtn.MouseButton1Click:Connect(function()
     else
         outputLabel.Text = "Por favor, escribe un comando."
     end
+end)
+
+-- Evento botón cerrar
+cerrarBtn.MouseButton1Click:Connect(function()
+    ba:Destroy()
 end)
